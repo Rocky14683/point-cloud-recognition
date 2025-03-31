@@ -148,15 +148,10 @@ def process_lidar_video(lidar_folder):
         final_points, bounding_boxes, final_labels = cluster_and_bounding_boxes(no_ground_points)  # Get filtered points
         if final_points.size > 0:
             visualize_bounding_boxes(final_points, bounding_boxes, final_labels)
-        time.sleep(0.1)
+        time.sleep(0.1) # Adjust delay for desired speed
+        """Delay to control visualization speed does not work currently. working on a fix"""
         o3d.visualization.destroy_window()
 
-# Example Usage (replace with your folder path)
+# Folder Path
 lidar_folder = r"2011_09_26_drive_0052_sync\velodyne_points\data"
-
-#make the folder if it does not exist.
-if not os.path.exists(lidar_folder):
-    os.makedirs(lidar_folder)
-    print("Please place lidar bin files into the lidar_data folder")
-else:
-    process_lidar_video(lidar_folder)
+process_lidar_video(lidar_folder)
