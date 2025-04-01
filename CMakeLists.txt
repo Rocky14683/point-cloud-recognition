@@ -43,13 +43,16 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 file(GLOB TEST_SOURCES test/*.cpp)
-add_executable(GTEST ${TEST_SOURCES})
+add_executable(GTEST ${TEST_SOURCES}
+        test/cv_test.cpp)
 
 target_include_directories(GTEST PRIVATE include)
 
 target_link_libraries(GTEST PUBLIC gtest gtest_main
         rerun_sdk
-        ${OpenCV_LIBS})
+        ${OpenCV_LIBS}
+        Eigen3::Eigen
+)
 
 include(GoogleTest)
 gtest_discover_tests(GTEST)
