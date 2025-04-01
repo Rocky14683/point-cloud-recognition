@@ -3,6 +3,6 @@
 ![](asset/trimed.gif)
 
 ## TODO:
--[ ] Implement point cloud recognition (mmdetection3D or Pytorch)
--[ ] Filters
--[ ] Project camera data to point clouds
+- [ ] Implement point cloud recognition (mmdetection3D or Pytorch)
+- [ ] Filters
+- [ ] Project camera data to point clouds
