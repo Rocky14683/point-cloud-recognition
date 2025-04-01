@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenCV REQUIRED)
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -26,7 +27,9 @@ include_directories(./include)
 add_executable(${TARGET_NAME} src/main.cpp)
 target_link_libraries(${TARGET_NAME} PUBLIC
         rerun_sdk
-        ${OpenCV_LIBS})
+        ${OpenCV_LIBS}
+        Eigen3::Eigen
+)
 
 # google test
 
