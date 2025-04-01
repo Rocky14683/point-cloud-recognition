@@ -3,7 +3,8 @@
 #include <chrono>
 #include <thread>
 
-#include "parser.hpp"
+#include "lidar_parser.hpp"
+#include "oxts_parser.hpp"
 
 // Demonstrate some basic assertions.
 TEST(HelloTest, BasicAssertions) {
@@ -29,7 +30,7 @@ TEST(Parser, BasicAssertions) {
     constexpr char DATA_110[] = {
     #embed "../datas/velodyne_points/data/0000000000.txt"
     };
-    auto out = process_single_frame(DATA_110, 121000);
+    auto out = lidar_parser::process_single_frame(DATA_110, 121000);
 
     for(auto &pos: out.positions) {
         std::println("{} {} {}", pos.x(), pos.y(), pos.z());
@@ -42,7 +43,7 @@ TEST(EmbedSizeCheck1, BasicAssertions) {
     constexpr char DATA_000[] = {
 #embed "../datas/velodyne_points/data/0000000000.txt"
     };
-    auto out = process_single_frame(DATA_000, 121000);
+    auto out = lidar_parser::process_single_frame(DATA_000, 121000);
     std::println("size: {}", out.positions.size());
     EXPECT_EQ(out.positions.size(), 120574);
 }
@@ -51,7 +52,7 @@ TEST(EmbedSizeCheck2, BasicAssertions) {
     constexpr char DATA_000[] = {
 #embed "../datas/velodyne_points/data/0000000000.txt"
     };
-    auto out = process_single_frame(DATA_000, 121000);
+    auto out = lidar_parser::process_single_frame(DATA_000, 121000);
 
     std::println("size: {}", out.positions.size());
     EXPECT_EQ(out.positions.size(), 120574);
@@ -59,7 +60,7 @@ TEST(EmbedSizeCheck2, BasicAssertions) {
     constexpr char DATA_001[] = {
 #embed "../datas/velodyne_points/data/0000000001.txt"
     };
-    auto out1 = process_single_frame(DATA_001, 121000);
+    auto out1 = lidar_parser::process_single_frame(DATA_001, 121000);
 
     std::println("size: {}", out1.positions.size());
     EXPECT_EQ(out1.positions.size(), 120831);
@@ -67,7 +68,7 @@ TEST(EmbedSizeCheck2, BasicAssertions) {
     constexpr char DATA_002[] = {
 #embed "../datas/velodyne_points/data/0000000002.txt"
     };
-    auto out2 = process_single_frame(DATA_002, 121000);
+    auto out2 = lidar_parser::process_single_frame(DATA_002, 121000);
 
     std::println("size: {}", out2.positions.size());
     EXPECT_EQ(out2.positions.size(), 121015);
@@ -81,7 +82,15 @@ TEST(Parser, BasicAssertions2) {
     }
     std::stringstream buffer;
     buffer << file.rdbuf();  // Read entire file at once
-    auto out = process_single_frame(buffer.str(), 121000);
+    auto out = lidar_parser::process_single_frame(buffer.str(), 121000);
     std::println("size: {}", out.positions.size());
     EXPECT_EQ(out.positions.size(), 120574);
+}
+
+TEST(OXTS_parser, BasicAssertions) {
+    std::filesystem::path path = "../bin_datas/oxts/data/0000000000.txt";
+    auto out = oxts_parser::parse_oxts_file(path);
+    std::println("lat: {}, lon: {}, alt: {}", out.lat, out.lon, out.alt);
+    EXPECT_FLOAT_EQ(out.lat, 49.015003823272);
+    EXPECT_FLOAT_EQ(out.lon, 8.4342971002335);
 }
