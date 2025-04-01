@@ -13,7 +13,7 @@
 #include <opencv2/opencv.hpp>
 #include <rerun.hpp>
 
-
+namespace lidar_parser {
 
 struct FrameResult {
         std::vector<rerun::Position3D> positions;
@@ -23,6 +23,12 @@ struct FrameResult {
             // this is extremely bad lol
             positions.reserve(point_count);
             intensities.reserve(point_count);
+        }
+
+        void resize(size_t point_count) {
+            // this is extremely bad lol
+            positions.resize(point_count);
+            intensities.resize(point_count);
         }
 };
 
@@ -62,9 +68,7 @@ FrameResult process_single_frame(const std::string& frame_data, size_t approx_po
     return result;
 }
 
-
-template<int limit = -1, size_t N>
-auto process_all_frames(const std::array<const char*, N>& inputs) {
+template <int limit = -1, size_t N> auto process_all_frames(const std::array<const char*, N>& inputs) {
     static_assert(limit <= N, "limit must be less than or equal to N");
 
     constexpr auto limit_ = limit == -1 ? N : limit;
@@ -88,7 +92,6 @@ auto process_all_frames(const std::array<const char*, N>& inputs) {
     //    }
 
     return datas;
-
 }
 
 inline rerun::Color convert_intensity_to_color(float intensity) {
@@ -109,21 +112,43 @@ std::vector<rerun::Color> convert_intensity_to_color(const std::vector<float>& i
 
 std::string read_entire_file(const std::filesystem::path& path) {
     std::ifstream file(path);
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + path.string());
-    }
+    if (!file.is_open()) { throw std::runtime_error("Failed to open file: " + path.string()); }
     std::stringstream buffer;
-    buffer << file.rdbuf();  // Read entire file at once
+    buffer << file.rdbuf(); // Read entire file at once
     return buffer.str();
 }
 
+FrameResult parse_frame_bin(const std::filesystem::path& path) noexcept {
+    std::FILE* pFile = fopen(path.c_str(), "rb");
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    long size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    long number_of_points = size / 4 / sizeof(float);
+//    std::println("pts number: {}", number_of_points);
+
+    file.seekg(0);
+    std::vector<float> rawData(4 * number_of_points);
+    file.read(reinterpret_cast<char*>(rawData.data()), size);
+
+    FrameResult result;
+    result.resize(number_of_points);
+
+    for (size_t i = 0; i < number_of_points; ++i) {
+        const size_t offset = i * 4;
+        result.positions[i] = rerun::Position3D {rawData[offset], rawData[offset + 1], rawData[offset + 2]};
+        result.intensities[i] = rawData[offset + 3];
+    }
+
+    return result;
+}
 
 std::vector<FrameResult> process_all_frames_from_files(int n) {
     std::vector<FrameResult> datas;
     datas.reserve(n);
 
     for (size_t i = 0; i < n; i++) {
-        auto input = read_entire_file(std::filesystem::path("../datas/velodyne_points/data/0000000" + std::format("{:03}", i) + ".txt"));
+        auto input = read_entire_file(
+            std::filesystem::path("../datas/velodyne_points/data/0000000" + std::format("{:03}", i) + ".txt"));
         datas.push_back(process_single_frame(input, 121000));
         std::println("frame {} done: {}", i, datas.back().positions.size());
     }
@@ -131,29 +156,45 @@ std::vector<FrameResult> process_all_frames_from_files(int n) {
     return datas;
 }
 
-
 std::vector<FrameResult> process_all_frames_from_files_multithreading(int n) {
-    std::vector<FrameResult> datas(n);  // Pre-allocate exact size
+    std::vector<FrameResult> datas(n); // Pre-allocate exact size
     std::vector<std::future<void>> futures;
 
     for (size_t i = 0; i < n; i++) {
         futures.emplace_back(std::async(std::launch::async, [&, i]() {
             try {
-                // Read file
-                auto path = std::filesystem::path("../datas/velodyne_points/data/0000000" + std::format("{:03}", i) + ".txt");
+                auto path =
+                    std::filesystem::path("../datas/velodyne_points/data/0000000" + std::format("{:03}", i) + ".txt");
                 auto input = read_entire_file(path);
 
-                // Process frame
                 datas[i] = process_single_frame(input, 121000);
-            } catch (const std::exception& e) {
-                std::println("Error processing frame {}: {}", i, e.what());
-            }
+            } catch (const std::exception& e) { std::println("Error processing frame {}: {}", i, e.what()); }
         }));
     }
 
-    for (auto& future : futures) {
-        future.wait();
-    }
+    for (auto& future : futures) { future.wait(); }
 
     return datas;
 }
+
+std::vector<FrameResult> process_all_frames_from_bin_multithreading(size_t n) {
+    std::vector<FrameResult> datas(n); // Pre-allocate exact size
+    std::vector<std::future<void>> futures;
+
+    for (size_t i = 0; i < n; i++) {
+        futures.emplace_back(std::async(std::launch::async, [&, i]() {
+            try {
+                auto path = std::filesystem::path("../bin_datas/velodyne_points/data/0000000" +
+                                                  std::format("{:03}", i) + ".bin");
+
+                datas[i] = parse_frame_bin(path);
+            } catch (const std::exception& e) { std::println("Error processing frame {}: {}", i, e.what()); }
+        }));
+    }
+
+    for (auto& future : futures) { future.wait(); }
+
+    return datas;
+}
+
+};
