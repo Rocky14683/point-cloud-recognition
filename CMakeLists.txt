@@ -15,6 +15,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenCV REQUIRED)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(PCL 1.3 REQUIRED)
+find_package(JsonCpp REQUIRED)
+
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 include(FetchContent)
 FetchContent_Declare(
@@ -24,11 +30,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(rerun_sdk)
 
 include_directories(./include)
-add_executable(${TARGET_NAME} src/main.cpp)
+include_directories(./include/3D_Ground_Segmentation)
+add_executable(${TARGET_NAME} src/main.cpp
+        src/3D_Ground_Segmentation/ground_plane_fitting.cpp)
 target_link_libraries(${TARGET_NAME} PUBLIC
         rerun_sdk
         ${OpenCV_LIBS}
         Eigen3::Eigen
+        ${PCL_LIBRARY_DIRS}
+        JsonCpp::JsonCpp
 )
 
 # google test
@@ -43,8 +53,7 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 file(GLOB TEST_SOURCES test/*.cpp)
-add_executable(GTEST ${TEST_SOURCES}
-        test/cv_test.cpp)
+add_executable(GTEST ${TEST_SOURCES})
 
 target_include_directories(GTEST PRIVATE include)
 
@@ -52,6 +61,7 @@ target_link_libraries(GTEST PUBLIC gtest gtest_main
         rerun_sdk
         ${OpenCV_LIBS}
         Eigen3::Eigen
+        ${PCL_LIBRARY_DIRS}
 )
 
 include(GoogleTest)
