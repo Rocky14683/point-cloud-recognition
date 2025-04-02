@@ -12,6 +12,8 @@
 
 #include <opencv2/opencv.hpp>
 #include <rerun.hpp>
+#include <pcl/io/pcd_io.h>
+
 
 namespace lidar_parser {
 
@@ -196,5 +198,48 @@ std::vector<FrameResult> process_all_frames_from_bin_multithreading(size_t n) {
 
     return datas;
 }
+
+void pcl_parse_frame_bin(const std::filesystem::path& path, pcl::PointCloud<pcl::PointXYZI>& result) noexcept {
+    std::FILE* pFile = fopen(path.c_str(), "rb");
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    long size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    long number_of_points = size / 4 / sizeof(float);
+    //    std::println("pts number: {}", number_of_points);
+
+    file.seekg(0);
+    std::vector<float> rawData(4 * number_of_points);
+    file.read(reinterpret_cast<char*>(rawData.data()), size);
+
+    result.resize(number_of_points);
+
+    for (size_t i = 0; i < number_of_points; ++i) {
+        const size_t offset = i * 4;
+        result.at(i) = {rawData[offset], rawData[offset + 1], rawData[offset + 2], rawData[offset + 3]};
+    }
+}
+
+
+std::vector<pcl::PointCloud<pcl::PointXYZI>> pcl_process_all_frames_from_bin_multithreading(size_t n) {
+    std::vector<pcl::PointCloud<pcl::PointXYZI>> datas(n); // Pre-allocate exact size
+    std::vector<std::future<void>> futures;
+
+    for (size_t i = 0; i < n; i++) {
+        futures.emplace_back(std::async(std::launch::async, [&, i]() {
+            try {
+                auto path = std::filesystem::path("../bin_datas/velodyne_points/data/0000000" +
+                                                  std::format("{:03}", i) + ".bin");
+                pcl_parse_frame_bin(path, datas[i]);
+            } catch (const std::exception& e) { std::println("Error processing frame {}: {}", i, e.what()); }
+        }));
+    }
+
+    for (auto& future : futures) { future.wait(); }
+
+    return datas;
+}
+
+
+
 
 };
