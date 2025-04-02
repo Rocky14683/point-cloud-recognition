@@ -6,6 +6,8 @@
 #include <opencv2/core.hpp>
 
 #include <cassert>
+#include <pcl/io/pcd_io.h>
+#include "lidar_parser.hpp"
 
 // Adapters so we can log eigen vectors as rerun positions:
 template <>
@@ -71,5 +73,43 @@ struct rerun::CollectionAdapter<uint8_t, cv::Mat> {
             std::vector<uint8_t> img_vec(img.total() * img.channels());
             img_vec.assign(img.data, img.data + img.total() * img.channels());
             return Collection<uint8_t>::take_ownership(std::move(img_vec));
+        }
+};
+
+template <>
+struct rerun::CollectionAdapter<rerun::Position3D, pcl::PointCloud<pcl::PointXYZI>> {
+        /// Borrow for non-temporary (unsafe - PCL doesn't guarantee contiguous XYZ)
+        Collection<rerun::Position3D> operator()(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
+            std::vector<rerun::Position3D> positions;
+            positions.reserve(cloud.size());
+            for (const auto& point : cloud) {
+                positions.emplace_back(point.x, point.y, point.z);
+            }
+            return Collection<rerun::Position3D>::take_ownership(std::move(positions));
+        }
+
+        // dont use
+        Collection<rerun::Position3D> operator()(pcl::PointCloud<pcl::PointXYZI>&& cloud) {
+            assert(false && "dont move.");
+            return (*this)(cloud); // same implementation
+        }
+};
+
+template <>
+struct rerun::CollectionAdapter<rerun::Color, pcl::PointCloud<pcl::PointXYZI>> {
+        /// Borrow for non-temporary (unsafe - PCL doesn't guarantee contiguous XYZ)
+        Collection<rerun::Color> operator()(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
+            std::vector<rerun::Color> colors;
+            colors.reserve(cloud.size());
+            for (const auto& point : cloud) {
+                colors.emplace_back(lidar_parser::convert_intensity_to_color(point.intensity));
+            }
+            return Collection<rerun::Color>::take_ownership(std::move(colors));
+        }
+
+        // dont use
+        Collection<rerun::Color> operator()(pcl::PointCloud<pcl::PointXYZI>&& cloud) {
+            assert(false && "dont move.");
+            return (*this)(cloud); // same implementation
         }
 };
