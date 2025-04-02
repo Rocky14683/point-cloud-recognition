@@ -5,8 +5,8 @@ project(${TARGET_NAME} LANGUAGES CXX)
 
 set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
 set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23 -Wc23-extensions")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -Wno-c23-extensions -O3")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -Wno-c23-extensions -O3 -Wnon-c-typedef-for-linkage")
 
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_CXX_STANDARD 23)
