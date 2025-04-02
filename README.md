@@ -3,7 +3,7 @@
 ![](asset/trimed.gif)
 
 ## TODO:
-- [ ] Point cloud segementation
+- [x] Point cloud segementation
 - [ ] Implement point cloud recognition (mmdetection3D or Pytorch)
 - [ ] Filters
 - [ ] Project camera data to point clouds
