@@ -94,3 +94,47 @@ TEST(OXTS_parser, BasicAssertions) {
     EXPECT_FLOAT_EQ(out.lat, 49.015003823272);
     EXPECT_FLOAT_EQ(out.lon, 8.4342971002335);
 }
+
+
+TEST(lidar_parse_test, BasicAssertions) {
+    auto cloud = lidar_parser::parse_frame_bin("../bin_datas/velodyne_points/data/0000000000.bin");
+    std::println("size: {}", cloud.positions.size());
+    //    EXPECT_EQ(cloud->points.size(), 121000);
+}
+
+TEST(pcl_parse_test, BasicAssertions) {
+    auto cloud = pcl::PointCloud<pcl::PointXYZI>();
+    lidar_parser::pcl_parse_frame_bin("../bin_datas/velodyne_points/data/0000000000.bin", cloud);
+    std::println("size: {}", cloud.points.size());
+    EXPECT_EQ(cloud.points.size(), 121015);
+}
+
+TEST(pcl_group_parse_test, BasicAssertions) {
+    auto clouds = lidar_parser::pcl_process_all_frames_from_bin_multithreading(3);
+    for (const auto& cloud : clouds) {
+        std::println("size: {}", cloud.points.size());
+    }
+}
+
+TEST(Cv_imshow, BasicAssertions) {
+    auto img = camera_fuser::load_image_png("../bin_datas/image_02/data/0000000000.png");
+    cv::imshow("image", img);
+    cv::waitKey(5000);
+    cv::destroyAllWindows();
+}
+
+
+TEST(Cv_imshow_multiple, BasicAssertions) {
+    auto imgs = camera_fuser::load_images_from_dir_name("image_02", 3);
+    int i = 0;
+    for(const auto& img : imgs) {
+        cv::imshow(std::format("image{}", i++), img);
+    }
+    cv::waitKey(5000);
+    cv::destroyAllWindows();
+}
+
+TEST(Cv_get_size, BasicAssertions) {
+    auto img = camera_fuser::load_image_png("../bin_datas/image_02/data/0000000000.png");
+    std::println("w: {}, h: {}", img.cols, img.rows);
+}
