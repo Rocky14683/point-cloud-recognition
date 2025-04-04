@@ -2,9 +2,12 @@
 #include <atomic>
 #include <chrono>
 #include <thread>
+#include <armadillo>
 
 #include "lidar_parser.hpp"
 #include "oxts_parser.hpp"
+#include "camera_fuser.hpp"
+#include "DBSCAN.hpp"
 
 // Demonstrate some basic assertions.
 TEST(HelloTest, BasicAssertions) {
@@ -137,4 +140,36 @@ TEST(Cv_imshow_multiple, BasicAssertions) {
 TEST(Cv_get_size, BasicAssertions) {
     auto img = camera_fuser::load_image_png("../bin_datas/image_02/data/0000000000.png");
     std::println("w: {}, h: {}", img.cols, img.rows);
+}
+
+TEST(mlpack_dbscan, BasicAssertions) {
+    auto cloud = pcl::PointCloud<pcl::PointXYZI>();
+    lidar_parser::pcl_parse_frame_bin("../bin_datas/velodyne_points/data/0000000000.bin", cloud);
+    std::println("cloud size: {}", cloud.size());
+    arma::Row<size_t> assignments;
+    arma::mat data(3, cloud.points.size());
+    for (size_t i = 0; i < cloud.points.size(); ++i) {
+        data(0, i) = cloud.points[i].x;
+        data(1, i) = cloud.points[i].y;
+        data(2, i) = cloud.points[i].z;
+    }
+    double epsilon = 1;
+    int minPts = 4;
+    mlpack::DBSCAN dbscan(epsilon, minPts);
+    auto size = dbscan.Cluster(data, assignments);
+    std::println("mesh size: {}", size);
+}
+
+
+
+TEST(mlpack_dbscan_multiple_frame, BasicAssertions) {
+    auto clouds = lidar_parser::pcl_process_all_frames_from_bin_multithreading(3);
+    std::vector<arma::Row<size_t>> assignments_per_frame(clouds.size());
+    std::vector<size_t> cluster_counts_each_frame(clouds.size());
+    double epsilon = 1;
+    int minPts = 4;
+    dbscan::apply_DBSCAN_multithreading(clouds, epsilon, minPts, assignments_per_frame, cluster_counts_each_frame);
+    for (size_t i = 0; i < cluster_counts_each_frame.size(); ++i) {
+        std::println("frame {}: cluster size: {}", i, assignments_per_frame.at(i).n_elem);
+    }
 }
