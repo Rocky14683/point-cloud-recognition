@@ -10,7 +10,7 @@
 <img src="asset/clustering.gif" width="550" height="250"/>
 
 ## Voxel Grid filter
-<img src="asset/voxel_grid_filter.png" />
+<img src="asset/voxel_grid_filter.png" width="550" height=""/>
 
 ## TODO:
 - [x] Point cloud segementation
