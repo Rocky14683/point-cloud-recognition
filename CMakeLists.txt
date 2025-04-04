@@ -5,7 +5,7 @@ project(${TARGET_NAME} LANGUAGES CXX)
 
 set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
 set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23 -Wnon-c-typedef-for-linkage")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -Wno-c23-extensions -O3 -Wnon-c-typedef-for-linkage")
 
 set(CMAKE_C_STANDARD 23)
@@ -15,12 +15,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenCV REQUIRED)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(PCL 1.3 REQUIRED)
+find_package(PCL 1.15 REQUIRED)
 find_package(JsonCpp REQUIRED)
+
 
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MLPACK REQUIRED mlpack)
+include_directories(${MLPACK_INCLUDE_DIRS})
+link_directories(${MLPACK_LIBRARY_DIRS})
 
 include(FetchContent)
 FetchContent_Declare(
@@ -37,7 +43,9 @@ target_link_libraries(${TARGET_NAME} PUBLIC
         rerun_sdk
         ${OpenCV_LIBS}
         Eigen3::Eigen
-        ${PCL_LIBRARY_DIRS}
+        ${PCL_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${MLPACK_LIBRARIES}
         JsonCpp::JsonCpp
 )
 
@@ -61,7 +69,10 @@ target_link_libraries(GTEST PUBLIC gtest gtest_main
         rerun_sdk
         ${OpenCV_LIBS}
         Eigen3::Eigen
-        ${PCL_LIBRARY_DIRS}
+        ${PCL_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${MLPACK_LIBRARIES}
+        JsonCpp::JsonCpp
 )
 
 include(GoogleTest)
