@@ -13,7 +13,7 @@
 #include <opencv2/opencv.hpp>
 #include <rerun.hpp>
 #include <pcl/io/pcd_io.h>
-
+#include <pcl/filters/voxel_grid.h>
 
 namespace lidar_parser {
 
@@ -126,7 +126,7 @@ FrameResult parse_frame_bin(const std::filesystem::path& path) noexcept {
     long size = file.tellg();
     file.seekg(0, std::ios::beg);
     long number_of_points = size / 4 / sizeof(float);
-//    std::println("pts number: {}", number_of_points);
+    //    std::println("pts number: {}", number_of_points);
 
     file.seekg(0);
     std::vector<float> rawData(4 * number_of_points);
@@ -219,7 +219,6 @@ void pcl_parse_frame_bin(const std::filesystem::path& path, pcl::PointCloud<pcl:
     }
 }
 
-
 std::vector<pcl::PointCloud<pcl::PointXYZI>> pcl_process_all_frames_from_bin_multithreading(size_t n) {
     std::vector<pcl::PointCloud<pcl::PointXYZI>> datas(n); // Pre-allocate exact size
     std::vector<std::future<void>> futures;
@@ -239,7 +238,56 @@ std::vector<pcl::PointCloud<pcl::PointXYZI>> pcl_process_all_frames_from_bin_mul
     return datas;
 }
 
+pcl::PointCloud<pcl::PointXYZI>
+voxel_filter(const pcl::PointCloud<pcl::PointXYZI>& cluster, float leaf_size_x, float leaf_size_y,
+             float leaf_size_z) {
+    pcl::PointCloud<pcl::PointXYZI> voxel_out;
+    pcl::VoxelGrid<pcl::PointXYZI> voxel_filter;
+    voxel_filter.setInputCloud(cluster.makeShared());
+    voxel_filter.setLeafSize(leaf_size_x, leaf_size_y, leaf_size_z);
+    voxel_filter.filter(voxel_out);
+    return voxel_out;
+}
 
 
+std::vector<pcl::PointCloud<pcl::PointXYZI>>
+voxel_filter_all(const std::vector<pcl::PointCloud<pcl::PointXYZI>>& lidars_notground, float leaf_size_x,
+                 float leaf_size_y, float leaf_size_z) {
+    std::vector<pcl::PointCloud<pcl::PointXYZI>> voxel_notground_elements(lidars_notground.size());
+    std::vector<pcl::VoxelGrid<pcl::PointXYZI>> voxel_filter(lidars_notground.size());
+    for (int i = 0; i < lidars_notground.size(); i++) {
+        voxel_filter.at(i).setInputCloud(lidars_notground.at(i).makeShared());
+        voxel_filter.at(i).setLeafSize(leaf_size_x, leaf_size_y, leaf_size_z);
+        voxel_filter.at(i).filter(voxel_notground_elements.at(i));
+    }
+    return voxel_notground_elements;
+}
 
-};
+
+std::vector<pcl::PointCloud<pcl::PointXYZI>>
+voxel_filter_all_multithreading(const std::vector<pcl::PointCloud<pcl::PointXYZI>>& lidars_notground, float leaf_size_x,
+                 float leaf_size_y, float leaf_size_z) {
+    std::vector<pcl::PointCloud<pcl::PointXYZI>> voxel_notground_elements(lidars_notground.size());
+    std::vector<pcl::VoxelGrid<pcl::PointXYZI>> voxel_filter(lidars_notground.size());
+
+    std::vector<std::future<void>> futures;
+
+    for (int i = 0; i < lidars_notground.size(); i++) {
+        futures.emplace_back(std::async(std::launch::async, [&, i]() {
+            try {
+                voxel_filter.at(i).setInputCloud(lidars_notground.at(i).makeShared());
+                voxel_filter.at(i).setLeafSize(leaf_size_x, leaf_size_y, leaf_size_z);
+                voxel_filter.at(i).filter(voxel_notground_elements.at(i));
+            } catch(const std::exception& e) {
+                std::println("Error generating voxel frame {}: {}", i, e.what());
+            }
+        }));
+    }
+
+    for (auto& future : futures) { future.wait(); }
+
+    return voxel_notground_elements;
+}
+
+
+}; // namespace lidar_parser
