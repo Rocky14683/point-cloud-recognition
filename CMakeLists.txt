@@ -49,6 +49,25 @@ target_link_libraries(${TARGET_NAME} PUBLIC
         JsonCpp::JsonCpp
 )
 
+add_subdirectory(cnpy)
+include_directories(cnpy)
+# data collector
+add_executable(data_collector
+        cnpy
+        src/training_data_collector.cpp
+        src/3D_Ground_Segmentation/ground_plane_fitting.cpp)
+target_link_libraries(data_collector PUBLIC
+        cnpy
+        rerun_sdk
+        ${OpenCV_LIBS}
+        Eigen3::Eigen
+        ${PCL_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${MLPACK_LIBRARIES}
+        JsonCpp::JsonCpp
+)
+
+
 # google test
 
 FetchContent_Declare(
