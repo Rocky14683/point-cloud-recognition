@@ -3,15 +3,17 @@
 #include <ranges>
 #include <cmath>
 
-
+#include "helper.hpp"
 #include "lidar_parser.hpp"
 #include "oxts_parser.hpp"
 #include "camera_fuser.hpp"
 #include "collection_adapter.hpp"
+#include "ground_plane_fitting.h"
+#include "DBSCAN.hpp"
 
-constexpr size_t frame_wanted = 20;
+constexpr size_t frame_wanted = 108;
 // footage configuration
-constexpr const char* footage_path = "../footage2.rrd";
+constexpr const char* footage_path = "../footages/full_rendering.rrd";
 constexpr float s_per_frame = 11.f / 114.f;
 
 inline const rerun::Color red = rerun::Color(255, 0, 0);
@@ -28,138 +30,105 @@ constexpr float accel_scalar = 15.f;
 constexpr float G_Accel = 9.81f;
 }; // namespace constants
 
-
-using R_MAT = Eigen::Matrix<float, 3, 3>;
-using T_MAT = Eigen::Matrix<float, 3, 1>;
-using R_RECT_MAT = Eigen::Matrix<float, 3, 3>;
-
-//rotate -90deg on z axis
-const R_MAT rotation_z_n45({
-    {cosf(-M_PI_2), -sinf(-M_PI_2), 0.f},
-    {sinf(-M_PI_2), cosf(-M_PI_2), 0.f},
-    {0.f, 0.f, 1.f}
-});
-
-//rotate -90deg on x axis
-const R_MAT rotation_x_n45({
-    {1.f, 0.f, 0.f},
-    {0.f, cosf(-M_PI_2), -sinf(-M_PI_2)},
-    {0.f, sinf(-M_PI_2), cosf(-M_PI_2)}
-});
-
-
 int main() {
-    // T_02: 5.956621e-02 2.900141e-04 2.577209e-03
-    T_MAT cam2_translation({{5.956621e-02}, {2.900141e-04}, {2.577209e-03}});
+    using namespace calib_parser;
 
-    // T_03: -4.731050e-01 5.551470e-03 -5.250882e-03
-    T_MAT cam3_translation({{-4.731050e-01}, {5.551470e-03}, {-5.250882e-03}});
-
-    // R_02:
-    // 9.999758e-01 -5.267463e-03 -4.552439e-03
-    // 5.251945e-03 9.999804e-01 -3.413835e-03
-    // 4.570332e-03 3.389843e-03 9.999838e-01
-    R_MAT cam2_rotation({{9.999758e-01, -5.267463e-03, -4.552439e-03},
-                         {5.251945e-03, 9.999804e-01, -3.413835e-03},
-                         {4.570332e-03, 3.389843e-03, 9.999838e-01}});
-
-    // R_03:
-    // 9.995599e-01 1.699522e-02 -2.431313e-02
-    // -1.704422e-02 9.998531e-01 -1.809756e-03
-    //  2.427880e-02 2.223358e-03 9.997028e-01
-    R_MAT cam3_rotation({{9.995599e-01, 1.699522e-02, -2.431313e-02},
-                         {-1.704422e-02, 9.998531e-01, -1.809756e-03},
-                         {2.427880e-02, 2.223358e-03, 9.997028e-01}});
-
-    /*
-    // K_02:
-    //  9.597910e+02 0.000000e+00 6.960217e+02
-    //  0.000000e+00 9.569251e+02 2.241806e+02
-    //  0.000000e+00 0.000000e+00 1.000000e+00
-
-
-    //K_03:
-    // 9.037596e+02 0.000000e+00 6.957519e+02
-    // 0.000000e+00 9.019653e+02 2.242509e+02
-    // 0.000000e+00 0.000000e+00 1.000000e+00
-    */
-
-    /*
-     * R_rect_02:
-     * 9.998817e-01 1.511453e-02 -2.841595e-03
-     * -1.511724e-02 9.998853e-01 -9.338510e-04
-     * 2.827154e-03 9.766976e-04 9.999955e-01
-     */
-
-    R_RECT_MAT R_rect_02({
-        {9.998817e-01, 1.511453e-02, -2.841595e-03},
-        {-1.511724e-02, 9.998853e-01, -9.338510e-04},
-        {2.827154e-03, 9.766976e-04, 9.999955e-01}
-    });
-
-    /*
-     * R_rect_03:
-     * 9.998321e-01 -7.193136e-03 1.685599e-02
-     * 7.232804e-03 9.999712e-01 -2.293585e-03
-     * -1.683901e-02 2.415116e-03 9.998553e-01
-     */
-    R_RECT_MAT R_rect_03({
-        {9.998321e-01, -7.193136e-03, 1.685599e-02},
-        {7.232804e-03, 9.999712e-01, -2.293585e-03},
-        {-1.683901e-02, 2.415116e-03, 9.998553e-01}
-    });
-
-
-//    auto img_rotate = rerun::Rotation3D(rerun::components::RotationAxisAngle{{1.f, 2.f, 3.f}});
-
-    const auto rec = rerun::RecordingStream("pointcloud");
-    rec.save(footage_path).exit_on_failure();
 
     //    auto out = process_all_frames_from_files_multithreading(50);
-    auto lidar_out = lidar_parser::process_all_frames_from_bin_multithreading(frame_wanted);
-    std::puts("lidar done");
+    //    auto lidar_out = lidar_parser::process_all_frames_from_bin_multithreading(frame_wanted);
+
+    auto lidar_out = lidar_parser::pcl_process_all_frames_from_bin_multithreading(frame_wanted);
+
+    std::puts("lidar parsing done");
+
+    // do ground plane segmentation
+    std::vector<pcl::PointCloud<pcl::PointXYZI>> lidars_notground;
+    std::vector<pcl::PointCloud<pcl::PointXYZI>> lidars_ground;
+    lidars_notground.reserve(lidar_out.size());
+    lidars_ground.reserve(lidar_out.size());
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr notground_points(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr ground_points(new pcl::PointCloud<pcl::PointXYZI>);
+    GroundPlaneFit ground_fitting;
+    for (auto& frame : lidar_out) {
+        notground_points->clear();
+        ground_points->clear();
+
+        auto frame_ptr = frame.makeShared(); // Only necessary heap allocation
+        ground_fitting.mainLoop(frame_ptr, notground_points, ground_points);
+
+        lidars_notground.emplace_back(std::move(*notground_points));
+        lidars_ground.emplace_back(std::move(*ground_points));
+    }
+
+    std::puts("lidar segmenting done");
+    // use not ground element to do DBSCAN
+//    std::vector<arma::Row<size_t>> assignments_per_frame(lidars_notground.size());
+//    double epsilon = 0.8;
+//    int min_ptrs = 30;
+//    dbscan::apply_DBSCAN_multithreading(lidars_notground, epsilon, min_ptrs, assignments_per_frame);
+//
+//    auto cluster_id_2_pts_all_frames = dbscan::get_cluster_map_multithreading(assignments_per_frame);
+
+    std::puts("lidar clustering done");
+
+    // do voxel grid filtering
+    //    auto voxel_notground_elements = lidar_parser::voxel_filter_all(lidars_notground, 0.1f, 0.1f, 0.1f);
+    //    std::puts("lidar voxelization done");
+
     auto oxts_out = oxts_parser::process_all_oxts_files(frame_wanted);
     std::puts("oxts done");
+
     auto camera1_out = camera_fuser::load_images_from_dir_name("image_02", frame_wanted); // 02 is color on camera1
     std::puts("camera1 done");
     auto camera2_out = camera_fuser::load_images_from_dir_name("image_03", frame_wanted); // 03 is color on camera1
     std::puts("camera2 done");
 
-    rec.log("camera1/image", rerun::Pinhole::from_focal_length_and_resolution({9.597910e+02, 9.569251e+02},
-                                                                              {constants::cam_w, constants::cam_h}));
+    const auto rec = rerun::RecordingStream("pointcloud");
+    rec.save(footage_path).exit_on_failure();
 
-    rec.log("camera2/image", rerun::Pinhole::from_focal_length_and_resolution({9.037596e+02, 9.019653e+02},
-                                                                              {constants::cam_w, constants::cam_h}));
+    // camera frame rotation first
+    rec.log("camera", rerun::Transform3D::from_mat3x3(rerun::Mat3x3(cams_rotation.data())));
 
-    R_MAT cam2_new_rotation = R_rect_02 * cam2_rotation;
-    R_MAT cam3_new_rotation = R_rect_03 * cam3_rotation;
+    rec.log("camera/cam1/image", rerun::Pinhole::from_focal_length_and_resolution(
+                                     {9.597910e+02, 9.569251e+02}, {constants::cam_w, constants::cam_h}));
 
-    T_MAT cam2_new_translation = R_rect_02 * cam2_translation;
-    T_MAT cam3_new_translation = R_rect_03 * cam3_translation;
+    rec.log("camera/cam2/image", rerun::Pinhole::from_focal_length_and_resolution(
+                                     {9.037596e+02, 9.019653e+02}, {constants::cam_w, constants::cam_h}));
 
+    // camera frame translation from camera 0
+    auto cam2_transformed = transform_camera(R_02, T_02);
+    auto cam3_transformed = transform_camera(R_03, T_03);
 
+    rec.log("camera/cam1/image", rerun::Transform3D::from_translation(rerun::Vec3D(cam2_transformed.data())));
 
-    R_MAT cam2_rot_out = cam2_new_rotation * rotation_z_n45;
-    cam2_rot_out = cam2_rot_out * rotation_x_n45;
-
-    R_MAT cam3_rot_out = cam3_new_rotation * rotation_z_n45;
-    cam3_rot_out = cam3_rot_out * rotation_x_n45;
-
-
-    rec.log("camera1/image",
-            rerun::Transform3D(
-                rerun::Vec3D(cam2_new_translation.data()),
-                rerun::Mat3x3(cam2_rot_out.data())));
-
-    rec.log("camera2/image",
-            rerun::Transform3D(
-                rerun::Vec3D(cam3_new_translation.data()),
-                rerun::Mat3x3(cam3_rot_out.data())));
+    rec.log("camera/cam2/image", rerun::Transform3D::from_translation(rerun::Vec3D(cam3_transformed.data())));
 
     for (size_t i = 0; i < frame_wanted; i++) {
-        rec.log("lidars/points", rerun::Points3D(lidar_out.at(i).positions)
-                                     .with_colors(lidar_parser::convert_intensity_to_color(lidar_out.at(i).intensities))
-                                     .with_radii(rerun::Radius(0.1f)));
+        rec.log("lidar/not_ground", rerun::Points3D(lidars_notground.at(i))
+                                        .with_colors(lidars_notground.at(i))
+                                        .with_radii(rerun::Radius(0.05f)));
+
+//        pcl::PointCloud<pcl::PointXYZI> cluster_points;
+//        pcl::PointCloud<pcl::PointXYZI> voxel_points;
+//        for (auto& [cluster_id, pt_idxs] : cluster_id_2_pts_all_frames.at(i)) {
+//            for (const auto& pt_idx : pt_idxs) { cluster_points.push_back(lidars_notground.at(i).points.at(pt_idx)); }
+//            rec.log(std::format("lidar/cluster/{}", cluster_id),
+//                    rerun::Points3D(cluster_points).with_radii(rerun::Radius(0.1f)));
+//            if (cluster_id != SIZE_MAX) {
+//                voxel_points = lidar_parser::voxel_filter(cluster_points, 0.3, 0.3, 1);
+//                rec.log(std::format("lidar/voxel/{}", cluster_id),
+//                        rerun::Boxes3D::from_centers_and_sizes(rerun::Collection<rerun::Position3D>(voxel_points),
+//                                                               {{0.15, 0.15, 0.15}})
+//                            .with_colors({{rerun::Color(255, 255, 255)}})
+//                            .with_radii(rerun::Radius(0.01f)));
+//            }
+//            cluster_points.clear();
+//            voxel_points.clear();
+//        }
+
+        rec.log("lidar/ground",
+                rerun::Points3D(lidars_ground.at(i)).with_colors(lidars_ground.at(i)).with_radii(rerun::Radius(0.05f)));
 
         const auto& oxts_frame = oxts_out.at(i);
 
@@ -175,11 +144,11 @@ int main() {
         rec.log("oxts/velocity",
                 rerun::LineStrips3D(velo_axes).with_radii(rerun::Radius::ui_points(2)).with_colors({red, green, blue}));
 
-        rec.log("camera1/image",
+        rec.log("camera/cam1/image",
                 rerun::Image::from_rgb24(camera1_out.at(i), {static_cast<uint32_t>(constants::cam_w),
                                                              static_cast<uint32_t>(constants::cam_h)}));
 
-        rec.log("camera2/image",
+        rec.log("camera/cam2/image",
                 rerun::Image::from_rgb24(camera2_out.at(i), {static_cast<uint32_t>(constants::cam_w),
                                                              static_cast<uint32_t>(constants::cam_h)}));
 

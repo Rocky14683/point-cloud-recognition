@@ -2,8 +2,8 @@
 
 GroundPlaneFit::GroundPlaneFit() {
     num_seg_ = 1; // Divide evenly the point cloud into a number of segments // TODO Write this implementation
-    num_iter_ = 3; // Number of iterations
-    num_lpr_ = 250; // number of points used to estimate the LPR
+    num_iter_ = 10; // Number of iterations
+    num_lpr_ = 500; // number of points used to estimate the LPR
 
     th_seeds_ = 1.2; // Threshold for points to be considered initial seeds
     th_dist_ = 0.3; // Threshold distance from the plane
