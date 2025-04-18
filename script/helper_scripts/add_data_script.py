@@ -24,7 +24,7 @@ def generate_datas_macros(n: int, file_name: str):
 #"datas/velodyne_points/data/0000000" #num ".txt"
 
 def main():
-    generate_datas_macros(110, "../include/datas.hpp")
+    generate_datas_macros(110, "../../include/datas.hpp")
 
 
 if __name__ == "__main__":
