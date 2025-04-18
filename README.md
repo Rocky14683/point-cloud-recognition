@@ -22,10 +22,13 @@ Raw design: display each cluster * frames in rerun, then use user console input 
 Store each cluster as a individual ```cluser{i}.npz``` file
 
 With:
-- points : (N, 3)
-- Orientation of view to the center of cluster: (1, 4)
-- label : 1
-
+```
+    voxels=[3, D, H, W],            #voxel grid input
+    view_angle=[2,],        #[sin(az), cos(az)]
+    centroid=[3,]       #[x, y, z]
+    label=scalar,             #class index
+    bbox=[5,]              #[w, h, l, sin(yaw), cos(yaw)]
+```
 ## TODO:
 - [x] Point cloud segementation
 - [x] Clustering
