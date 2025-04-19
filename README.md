@@ -13,13 +13,15 @@
 <img src="asset/voxel_grid_filter.png" width="550" height=""/>
 
 ## Training data collector
-Raw design: display each cluster * frames in rerun, then use user console input as the label.
-- NONE : -1
-- CAR : 0
-- PEDESTRIAN : 1
-- CYCLIST : 2
+Use [labelCloud](https://github.com/ch-sa/labelCloud) to label the raw pointcloud. We will also be looking into the bounding box size which will later on be pass into the neural network to help bounding box size prediction.
 
-Store each cluster as a individual ```cluser{i}.npz``` file
+After labeling, we will parse the data and pre-process all pointclouds like we did before. Then check if there are any cluster in the labeled bounding box. If yes, then it will be stored into a ```cluser{i}.npz``` file.
+
+**Labels**
+- NONE : 0
+- CAR : 1
+- PEDESTRIAN : 2
+- CYCLIST : 3
 
 With:
 ```
