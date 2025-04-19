@@ -17,9 +17,14 @@
 #include "collection_adapter.hpp"
 
 
-std::vector<pcl::PointCloud<pcl::PointXYZI>> process_pcl_subroutine(size_t num_process_frame,
+inline const rerun::Color red = rerun::Color(255, 0, 0);
+inline const rerun::Color green = rerun::Color(0, 255, 0);
+inline const rerun::Color blue = rerun::Color(0, 0, 255);
+
+
+std::vector<std::pair<pcl::PointCloud<pcl::PointXYZI>, pcl::PointXYZ>> process_pcl_subroutine(size_t num_process_frame,
                                                                     const std::filesystem::path& path) {
-    std::vector<pcl::PointCloud<pcl::PointXYZI>> datas;
+    std::vector<std::pair<pcl::PointCloud<pcl::PointXYZI>, pcl::PointXYZ>> clusters_and_centers;
     auto lidar_out = lidar_parser::pcl_process_all_frames_from_bin_multithreading(num_process_frame, path);
     // do ground plane segmentation
     std::vector<pcl::PointCloud<pcl::PointXYZI>> lidars_notground;
@@ -50,23 +55,28 @@ std::vector<pcl::PointCloud<pcl::PointXYZI>> process_pcl_subroutine(size_t num_p
     cluster_counts_each_frame.clear();
     assignments_per_frame.clear();
 
+
     for(size_t i = 0; i < num_process_frame; i++) {
         pcl::PointCloud<pcl::PointXYZI> cluster_points;
         pcl::PointCloud<pcl::PointXYZI> voxel_points;
+        pcl::PointXYZ center;
         for (auto& [cluster_id, pt_idxs] : cluster_id_2_pts_all_frames.at(i)) {
+            pcl::CentroidPoint<pcl::PointXYZI> centroid;
             for (const auto& pt_idx : pt_idxs) {
+                centroid.add(lidars_notground.at(i).points.at(pt_idx));
                 cluster_points.push_back(lidars_notground.at(i).points.at(pt_idx));
             }
             if (cluster_id != SIZE_MAX) {
                 voxel_points = lidar_parser::voxel_filter(cluster_points, 0.1, 0.1, 0.1);
+                centroid.get(center);
             }
-            datas.push_back(voxel_points);
+            clusters_and_centers.push_back({voxel_points, center});
             cluster_points.clear();
             voxel_points.clear();
         }
     }
 
-    return datas;
+    return clusters_and_centers;
 }
 
 constexpr size_t frame_wanted = 1;
@@ -76,29 +86,28 @@ int main() {
     rerun::RecordingStream rec("cluster_data_collector");
     rec.spawn().exit_on_failure();
     size_t i = 0;
-    for(const auto& cluster : voxel_clusters) {
+    for(const auto& [cluster, center] : voxel_clusters) {
         rec.log("lidar/voxel",
                 rerun::Boxes3D::from_centers_and_sizes(rerun::Collection<rerun::Position3D>(cluster),
                                                        {{0.15, 0.15, 0.15}})
                     .with_colors({{rerun::Color(255, 255, 255)}})
                     .with_radii(rerun::Radius(0.01f)));
-        InputFeatures feature;
+
+        rec.log("lidar/voxel/center",
+                rerun::Points3D(rerun::Position3D(center.x, center.y, center.z))
+                    .with_colors(red)
+                    .with_radii(rerun::Radius(0.1f)));
+
+        auto azimuth = std::atan2(center.y, center.x);
+        rec.log("lidar/voxel/azimuth",
+                rerun::Arrows3D::from_vectors({{std::cos(azimuth) * 5, std::sin(azimuth) * 5, 0}})
+                    .with_colors(green)
+                    .with_radii(rerun::Radius(0.1f)));
+//        InputFeatures feature;
 
         //input 0 ~ 2 or enter
         std::string input;
         std::getline(std::cin, input);
-//        auto n = stoi(input);
-//        switch(n) {
-//            case 0:
-//            case 1:
-//            case 2:
-//                feature.label = static_cast<Label_classes>(n);
-//                break;
-//            default:
-//                feature.label = Label_classes::NONE;
-//                break;
-//        }
-//        store_input_features(i++, feature);
     }
 
 
