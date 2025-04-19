@@ -68,11 +68,19 @@ With:
     bbox=[5,] #[w, h, l, sin(yaw), cos(yaw)]
 ```
 
+## Tools/ Frameworks/ Libraries used:
+- GoogleTest
+- Rerun
+- PCL
+- cnpy
+- Pytorch
+- ONNX Runtime
+- labelCloud
 
 ## TODO:
 - [x] Point cloud segementation
 - [x] Clustering
 - [x] Filters
 - [ ] Training data collecting pipeline
-- [ ] Implement point cloud recognition (mmdetection3D or Pytorch or VoxelNet)
+- [ ] Implement point cloud recognition using pytorch
 - [ ] Project camera data to point clouds
