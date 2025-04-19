@@ -8,6 +8,8 @@
 #include "oxts_parser.hpp"
 #include "camera_fuser.hpp"
 #include "DBSCAN.hpp"
+#include "nn_helper.hpp"
+#include "helper.hpp"
 
 // Demonstrate some basic assertions.
 TEST(HelloTest, BasicAssertions) {
@@ -20,61 +22,6 @@ TEST(HelloTest, BasicAssertions) {
 
 TEST(MultithreadCore, BasicAssertions) {
     std::println("{}", std::thread::hardware_concurrency());
-}
-
-TEST(Embed, BasicAssertions) {
-    constexpr char DATA_110[] = {
-#embed "../datas/velodyne_points/data/0000000000.txt"
-    };
-    printf("%s", DATA_110);
-}
-
-TEST(Parser, BasicAssertions) {
-    constexpr char DATA_110[] = {
-    #embed "../datas/velodyne_points/data/0000000000.txt"
-    };
-    auto out = lidar_parser::process_single_frame(DATA_110, 121000);
-
-    for(auto &pos: out.positions) {
-        std::println("{} {} {}", pos.x(), pos.y(), pos.z());
-    }
-
-    std::println("size: {}", out.positions.size());
-}
-
-TEST(EmbedSizeCheck1, BasicAssertions) {
-    constexpr char DATA_000[] = {
-#embed "../datas/velodyne_points/data/0000000000.txt"
-    };
-    auto out = lidar_parser::process_single_frame(DATA_000, 121000);
-    std::println("size: {}", out.positions.size());
-    EXPECT_EQ(out.positions.size(), 120574);
-}
-
-TEST(EmbedSizeCheck2, BasicAssertions) {
-    constexpr char DATA_000[] = {
-#embed "../datas/velodyne_points/data/0000000000.txt"
-    };
-    auto out = lidar_parser::process_single_frame(DATA_000, 121000);
-
-    std::println("size: {}", out.positions.size());
-    EXPECT_EQ(out.positions.size(), 120574);
-
-    constexpr char DATA_001[] = {
-#embed "../datas/velodyne_points/data/0000000001.txt"
-    };
-    auto out1 = lidar_parser::process_single_frame(DATA_001, 121000);
-
-    std::println("size: {}", out1.positions.size());
-    EXPECT_EQ(out1.positions.size(), 120831);
-
-    constexpr char DATA_002[] = {
-#embed "../datas/velodyne_points/data/0000000002.txt"
-    };
-    auto out2 = lidar_parser::process_single_frame(DATA_002, 121000);
-
-    std::println("size: {}", out2.positions.size());
-    EXPECT_EQ(out2.positions.size(), 121015);
 }
 
 TEST(Parser, BasicAssertions2) {
@@ -172,4 +119,42 @@ TEST(mlpack_dbscan_multiple_frame, BasicAssertions) {
     for (size_t i = 0; i < cluster_counts_each_frame.size(); ++i) {
         std::println("frame {}: cluster size: {}", i, assignments_per_frame.at(i).n_elem);
     }
+}
+
+
+std::vector<float> generate_test_array(size_t N) {
+    std::vector<float> arr(N);
+    for (size_t i = 0; i < N; ++i)
+        arr[i] = static_cast<float>(i);
+    return arr;
+}
+
+TEST(npz, saving) {
+    constexpr size_t C = 3, D = 32, H = 32, W = 32;
+    constexpr size_t N = C * D * H * W;  // = 98304
+
+    auto arr = generate_test_array(N);
+    std::mdspan<const float, std::extents<size_t, 3, 32, 32, 32>> grid(arr.data());
+    features::InputFeatures input_features {
+        .voxel_grid = grid,
+        .view_angle = {0.5f, 0.0003f},
+        .centroid = {50.f, 20.f, 3.23f},
+        .label = features::Label_classes::CAR,
+        .bbox = {1.502f, 2.222f, 7.0f, 0.1234f, 1.9999f},
+    };
+    store_input_features(0, input_features);
+}
+
+TEST(npz, parsing) {
+    auto feature = parse_npz_features(0);
+    auto vec = helper::flatten_mdspan(feature.voxel_grid);
+    for(const auto& i : vec) {
+        std::print("{}", i);
+    }
+    std::println("");
+    std::println("view_angle: {}, {}", feature.view_angle[0], feature.view_angle[1]);
+    std::println("centroid: {}, {}, {}", feature.centroid.x, feature.centroid.y, feature.centroid.z);
+    std::println("label: {}", static_cast<uint8_t>(feature.label));
+    std::println("bbox: {}, {}, {}, {}, {}", feature.bbox.width, feature.bbox.height, feature.bbox.length,
+                 feature.bbox.sin_yaw, feature.bbox.cos_yaw);
 }
