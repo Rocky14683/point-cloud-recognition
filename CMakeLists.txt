@@ -35,6 +35,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(rerun_sdk)
 
+FetchContent_Declare(
+        mdspan
+        URL https://github.com/kokkos/mdspan/archive/refs/tags/mdspan-0.6.0.zip
+)
+FetchContent_MakeAvailable(mdspan)
+
 include_directories(./include)
 include_directories(./include/3D_Ground_Segmentation)
 add_executable(${TARGET_NAME} src/main.cpp
@@ -47,6 +53,7 @@ target_link_libraries(${TARGET_NAME} PUBLIC
         ${Boost_LIBRARIES}
         ${MLPACK_LIBRARIES}
         JsonCpp::JsonCpp
+        mdspan
 )
 
 add_subdirectory(cnpy)
@@ -80,11 +87,13 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 file(GLOB TEST_SOURCES test/*.cpp)
-add_executable(GTEST ${TEST_SOURCES})
+add_executable(GTEST ${TEST_SOURCES}
+        test/test.cpp)
 
 target_include_directories(GTEST PRIVATE include)
 
 target_link_libraries(GTEST PUBLIC gtest gtest_main
+        cnpy
         rerun_sdk
         ${OpenCV_LIBS}
         Eigen3::Eigen
@@ -92,7 +101,8 @@ target_link_libraries(GTEST PUBLIC gtest gtest_main
         ${Boost_LIBRARIES}
         ${MLPACK_LIBRARIES}
         JsonCpp::JsonCpp
+        mdspan
 )
 
 include(GoogleTest)
-gtest_discover_tests(GTEST)
+gtest_discover_tests(GTEST DISCOVERY_TIMEOUT 60)
