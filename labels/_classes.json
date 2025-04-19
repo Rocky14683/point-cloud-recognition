@@ -1,0 +1,31 @@
+{
+    "classes": [
+        {
+            "name": "Unknown",
+            "id": 0,
+            "color": "#ff0000"
+        },
+        {
+            "name": "CAR",
+            "id": 1,
+            "color": "#000000"
+        },
+        {
+            "name": "PEDESTRIAN",
+            "id": 2,
+            "color": "#1fcc00"
+        },
+        {
+            "name": "CYCLIST",
+            "id": 3,
+            "color": "#7fff89"
+        }
+    ],
+    "default": 0,
+    "type": "object_detection",
+    "format": "kitti_untransformed",
+    "created_with": {
+        "name": "labelCloud",
+        "version": "1.1.1"
+    }
+}
