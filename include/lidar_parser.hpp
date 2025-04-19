@@ -238,6 +238,24 @@ std::vector<pcl::PointCloud<pcl::PointXYZI>> pcl_process_all_frames_from_bin_mul
     return datas;
 }
 
+std::vector<pcl::PointCloud<pcl::PointXYZI>> pcl_process_all_frames_from_bin_multithreading(size_t n, const std::filesystem::path& path_name) {
+    std::vector<pcl::PointCloud<pcl::PointXYZI>> datas(n); // Pre-allocate exact size
+    std::vector<std::future<void>> futures;
+
+    for (size_t i = 0; i < n; i++) {
+        futures.emplace_back(std::async(std::launch::async, [&, i]() {
+            try {
+                auto path = std::filesystem::path((path_name / (std::format("0000000{:03}", i) + ".bin")).c_str());
+                pcl_parse_frame_bin(path, datas[i]);
+            } catch (const std::exception& e) { std::println("Error processing frame {}: {}", i, e.what()); }
+        }));
+    }
+
+    for (auto& future : futures) { future.wait(); }
+
+    return datas;
+}
+
 pcl::PointCloud<pcl::PointXYZI>
 voxel_filter(const pcl::PointCloud<pcl::PointXYZI>& cluster, float leaf_size_x, float leaf_size_y,
              float leaf_size_z) {
