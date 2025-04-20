@@ -13,7 +13,7 @@
 <img src="asset/voxel_grid_filter.png" width="550" height=""/>
 
 ## Training data collector
-Use [labelCloud](https://github.com/ch-sa/labelCloud) to label the raw pointcloud. We will also be looking into the bounding box size which will later on be pass into the neural network to help bounding box size prediction.
+Use [Segments.ai](https://segments.ai/) to label the raw pointcloud. We will also be looking into the bounding box size which will later on be pass into the neural network to help bounding box size prediction.
 
 After labeling, we will parse the data and pre-process all pointclouds like we did before. Then check if there are any cluster in the labeled bounding box. If yes, then it will be stored into a ```cluser{i}.npz``` file.
 
