@@ -47,23 +47,32 @@ TEST(OXTS_parser, BasicAssertions) {
 
 
 TEST(lidar_parse_test, BasicAssertions) {
+    std::chrono::high_resolution_clock clock;
+    auto start = clock.now();
     auto cloud = lidar_parser::parse_frame_bin("../bin_datas/velodyne_points/data/0000000000.bin");
+    auto end = clock.now();
     std::println("size: {}", cloud.positions.size());
+    std::println("benchmark: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
     //    EXPECT_EQ(cloud->points.size(), 121000);
 }
 
 TEST(pcl_parse_test, BasicAssertions) {
     auto cloud = pcl::PointCloud<pcl::PointXYZI>();
+    std::chrono::high_resolution_clock clock;
+    auto start = clock.now();
     lidar_parser::pcl_parse_frame_bin("../bin_datas/velodyne_points/data/0000000000.bin", cloud);
+    auto end = clock.now();
+    std::println("benchmark: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
     std::println("size: {}", cloud.points.size());
     EXPECT_EQ(cloud.points.size(), 121015);
 }
 
 TEST(pcl_group_parse_test, BasicAssertions) {
-    auto clouds = lidar_parser::pcl_process_all_frames_from_bin_multithreading(3);
-    for (const auto& cloud : clouds) {
-        std::println("size: {}", cloud.points.size());
-    }
+    std::chrono::high_resolution_clock clock;
+    auto start = clock.now();
+    auto clouds = lidar_parser::pcl_process_all_frames_from_bin_multithreading(108);
+    auto end = clock.now();
+    std::println("benchmark: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 }
 
 TEST(Cv_imshow, BasicAssertions) {
