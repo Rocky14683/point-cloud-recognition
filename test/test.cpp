@@ -142,11 +142,11 @@ TEST(npz, saving) {
         .label = features::Label_classes::CAR,
         .bbox = {1.502f, 2.222f, 7.0f, 0.1234f, 1.9999f},
     };
-    store_input_features(0, input_features);
+    npz::store_input_features(0, input_features);
 }
 
 TEST(npz, parsing) {
-    auto feature = parse_npz_features(0);
+    auto feature = npz::parse_npz_features(0);
     auto vec = helper::flatten_mdspan(feature.voxel_grid);
     for(const auto& i : vec) {
         std::print("{}", i);
